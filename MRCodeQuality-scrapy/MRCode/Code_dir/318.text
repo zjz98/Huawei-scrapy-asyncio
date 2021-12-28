@@ -1,0 +1,21 @@
+import org.kodein.di.android.closestDI
+import org.kodein.di.instance
+ private val di by closestDI(getApplicationContext() as Context)
+ private val feedParser: FeedParser by di.instance()
+ di = di,
+ di = di,
+ di = di,
+ syncFeeds(di = di, filesDir = filesDir, feedId = cowboyJsonId, forceNetwork = true)
+ syncFeeds(di = di, filesDir = filesDir, feedId = cowboyJsonId, forceNetwork = true)
+ syncFeeds(di = di, filesDir = filesDir, feedId = cowboyJsonId, forceNetwork = true)
+ di = di, filesDir = filesDir,
+ syncFeeds(di = di, filesDir = filesDir, feedId = cowboyJsonId, forceNetwork = true)
+ di = di, filesDir = filesDir,
+ syncFeeds(di = di, filesDir = filesDir, feedId = failingJsonId)
+ syncFeeds(di = di, filesDir = filesDir, feedId = feedId)
+ syncFeeds(di = di, filesDir = filesDir, feedId = feedId)
+ syncFeeds(di = di, filesDir = filesDir, feedId = feedId)
+ syncFeeds(di = di, filesDir = filesDir, feedId = feedId, forceNetwork = true)
+ di = di, filesDir = filesDir,
+ syncFeeds(di = di, filesDir = filesDir, feedId = cowboyAtomId)
+ syncFeeds(di = di, filesDir = filesDir, feedId = cowboyAtomId)

@@ -1,0 +1,177 @@
+import android.widget.*
+import com.nononsenseapps.feeder.db.room.*
+import com.nononsenseapps.feeder.util.*
+ private lateinit var listResults: RecyclerView
+ private var openedFromFeed: Boolean = false
+
+ val feed = Feed(
+ // check if opened webview before
+ openedFromFeed = i.getBooleanExtra(ARG_OPENED_FROM_FEED, false)
+
+ // Link
+ feedUrl = (i.dataString ?: i.getStringExtra(Intent.EXTRA_TEXT) ?: "").trim()
+ textSearch.setText(feedUrl)
+ // URL
+ textUrl.setText(feedUrl)
+
+ } else if (id == ID_RETURN_URL) {
+ searchFrame.visibility = View.VISIBLE
+ detailsFrame.visibility = View.GONE
+
+ try {
+ // Issue search
+ val url: URL = sloppyLinkToStrictURL(feedUrl!!)
+
+ listResults.visibility = View.GONE
+ emptyText.visibility = View.GONE
+ loadingProgress.visibility = View.VISIBLE
+
+ searchJob = searchForFeeds(url)
+ } catch (exc: Exception) {
+ exc.printStackTrace()
+ Toast.makeText(
+ this@EditFeedActivity,
+ R.string.could_not_load_url,
+ Toast.LENGTH_SHORT
+ ).show()
+ }
+//                        Log.e("FeederFeedSearch", msg, RuntimeException(msg, it))
+
+ // to prevent loop between "webview" and "add feed"
+ if (!openedFromFeed) {
+ startActivity(
+ Intent(this@EditFeedActivity, FeedActivity::class.java).apply {
+ action = WEB_VIEW_ACTION
+ putExtras(
+ bundle {
+ putString(ARG_URL, url.toString())
+ putBoolean(ARG_OPENED_FROM_FEED, openedFromFeed)
+ }
+ )
+ }
+ )
+ }
+import com.nononsenseapps.feeder.db.room.ID_UNSET
+import com.nononsenseapps.feeder.util.WEB_VIEW_ACTION
+ } else if (intent?.action == WEB_VIEW_ACTION) {
+ val url = intent?.extras?.getString(ARG_URL) ?: ""
+ if (url.isBlank()) {
+ finish()
+ return
+ }
+
+ navController.navigate(
+ R.id.readerWebViewFragment,
+ bundle {
+ putString(ARG_URL, url)
+ putString(ARG_ENCLOSURE, "")
+ putBoolean(ARG_RETURN_URL, true)
+ putBoolean(ARG_OPENED_FROM_FEED, true)
+ putLong(ARG_ID, ID_UNSET)
+ }
+ )
+import android.net.Uri
+import com.nononsenseapps.jsonfeed.AndroidCookieJar
+const val ARG_RETURN_URL = "return_url"
+const val ARG_OPENED_FROM_FEED = "opened_from_feed"
+const val ID_RETURN_URL: Long = -20
+ private var returnToAddFeed: Boolean = false
+ private var openedFromFeed: Boolean = false
+ private val cookieJar = AndroidCookieJar()
+
+ returnToAddFeed = arguments.getBoolean(ARG_RETURN_URL, false)
+ openedFromFeed = arguments.getBoolean(ARG_OPENED_FROM_FEED, false)
+ // CookieManager.getInstance().setAcceptCookie(false)
+ WebViewClientHandler.onPageFinishedListener = { _: WebView?, _: String? ->
+ cookieJar.sync()
+ }
+
+ if (returnToAddFeed) {
+ val i = Intent(requireContext(), EditFeedActivity::class.java)
+ i.putExtra(ARG_OPENED_FROM_FEED, openedFromFeed)
+ i.putExtra(ARG_ID, ID_RETURN_URL)
+ i.data = Uri.parse(url)
+ startActivity(i)
+ }
+
+ companion object {
+ @JvmStatic
+ fun newInstance(url: String) = ReaderWebViewFragment().apply { arguments = Bundle().apply { putString(ARG_URL, url)} }
+ }
+ var onPageFinishedListener: ((view: WebView?, url: String?) -> Unit)? = null
+
+ override fun onPageFinished(view: WebView?, url: String?) {
+ super.onPageFinished(view, url)
+ onPageFinishedListener?.invoke(view, url)
+ }
+/**
+ * actions
+ */
+const val WEB_VIEW_ACTION: String = "feeder.intent.OPEN_WEB_VIEW"
+
+package com.nononsenseapps.jsonfeed
+
+import android.webkit.CookieManager
+import okhttp3.Cookie
+import okhttp3.CookieJar
+import okhttp3.HttpUrl
+
+class AndroidCookieJar : CookieJar {
+ private val manager = CookieManager.getInstance()
+
+ override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
+ val urlString = url.toString()
+
+ for (cookie in cookies) {
+ if (cookie.expiresAt <= 0 || cookie.expiresAt < System.currentTimeMillis()) {
+ manager.setCookie(urlString, "${cookie.name}=;")
+ } else {
+ manager.setCookie(urlString, cookie.toString())
+ }
+
+ }
+
+ manager.flush()
+ }
+
+ override fun loadForRequest(url: HttpUrl): List<Cookie> {
+ return getCookies(url)
+ }
+
+ fun getCookies(url: HttpUrl): List<Cookie> {
+ val cookies = manager.getCookie(url.toString())
+
+ return if (cookies != null && cookies.isNotEmpty()) {
+ cookies.split(";").mapNotNull { Cookie.parse(url, it) }
+ } else {
+ emptyList()
+ }
+ }
+
+ fun getCookiesAsString(url: String): String = manager.getCookie(url) ?: ""
+
+ fun getCookiesAsString(url: HttpUrl): String = getCookiesAsString(url.toString())
+
+ fun remove(url: String) {
+ val cookies = manager.getCookie(url) ?: return
+
+ cookies.split(";")
+ .map { it.substringBefore("=") }
+ .onEach { manager.setCookie(url, "$it=; Expires=Wed, 31 Dec 2025 23:59:59 GMT") }
+
+ manager.flush()
+ }
+
+ fun remove(url: HttpUrl) {
+ remove(url.toString())
+ }
+
+ fun removeAll() {
+ manager.removeAllCookies {}
+ manager.flush()
+ }
+
+ fun sync() {
+ manager.flush()
+ }
+}
